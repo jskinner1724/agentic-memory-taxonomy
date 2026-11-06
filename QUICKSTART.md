@@ -97,9 +97,9 @@ This is the only step that happens outside this app:
 
 For this Windows computer, choose the **Windows AMD64/x64** download. Do not choose **Windows ARM64**; ARM64 is a different processor architecture.
 
-The Platform page or tunnel client will create a **local tunnel profile** and may ask for a **runtime key**. The runtime key is simply the tunnel client’s password for connecting to that tunnel. It is not the same as an API key.
+The Platform page may show a **client ID**. That is not the credential used by the local tunnel client. For `tunnel-client`, create a separate restricted **Runtime API key** at [Platform Runtime API keys](https://platform.openai.com/settings/organization/api-keys). Give it only **Tunnels: Read + Use** access. Do not use an admin key or an OAuth client ID as the runtime key.
 
-When prompted, paste the runtime key into the tunnel client’s own credential prompt or local profile setup. Do not paste it into this README, GitHub, ChatGPT messages, a batch file, or a command-line argument. If the page asks you to add API payment details and you do not want API billing, stop without submitting them.
+Copy the Runtime API key once and paste it into the tunnel client’s local credential prompt or secure PowerShell input. Do not paste it into this README, GitHub, ChatGPT messages, a batch file, or a command-line argument. If the page asks you to add API payment details and you do not want API billing, stop without submitting them.
 
 ### Step 4: Tell the tunnel what to start
 
