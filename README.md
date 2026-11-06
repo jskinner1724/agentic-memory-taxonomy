@@ -194,6 +194,10 @@ This repository also includes a small local-first memory service that demonstrat
 
 ### Requirements and quickstart (Windows)
 
+**Cost boundary:** The local memory manager does not require a separate paid service, API key, or cloud account. It runs on your PC with Python and SQLite. Cloud/API processing is optional and disabled by default. Do not start the service with `--enable-openai` if you do not want separately billed API usage. Direct ChatGPT custom-MCP access is a separate ChatGPT feature whose availability depends on your plan and workspace permissions; verify that access before configuring a tunnel.
+
+You do not incur API charges merely by creating an OpenAI Platform account, installing this project, installing `tunnel-client`, or creating a tunnel. API charges require a separately configured API billing path—such as adding a payment method, purchasing API credits, enabling automatic recharge, or making API requests with an API key. ChatGPT subscription charges remain separate and come from subscription renewals, upgrades, or paid seats. The local launcher never enables the API broker, so the default path does not create API usage. OpenAI’s current tunnel documentation does not list a separate tunnel fee; review the Platform billing screen before enabling any paid API billing.
+
 Python 3.10 or newer is required. On Windows, double-click `run-memory-manager.cmd`. A console window stays open while the service runs; the local bearer token is printed there. Press `Ctrl+C` in that window to stop it. The launcher runs as your normal Windows user and does not install a service or start automatically with Windows.
 
 You can also start it from PowerShell in this folder:
@@ -237,7 +241,7 @@ Events are retained separately from admitted memories so a rejected event does n
 - Storage stays on the computer; Windows file permissions apply to the database directory. SQLite in this prototype is **not encrypted**. Use Windows device encryption/BitLocker if protection at rest is needed.
 - The random API token is printed to the service terminal at startup and exists only for that process. Do not share terminal output or expose this port through a proxy, firewall rule, or network bind.
 - Loopback binding and token checks reduce exposure, but this is not a security-audited product. `/health` intentionally reveals only that the local service is responding.
-- No dashboard, automatic capture from other applications, model-based memory extraction, automatic consolidation, or MCP transport is included yet. `/v1/events` is the narrow ingestion point for a trusted local connector.
+- No dashboard, automatic capture from other applications, model-based memory extraction, or automatic consolidation is included yet. The optional read-only MCP adapter is documented below, while `/v1/events` remains the narrow ingestion point for a trusted local connector.
 - The service has no automatic background startup and uses one request-handling thread to keep runtime overhead low.
 
 ### Local broker and optional OpenAI API
@@ -262,7 +266,7 @@ The broker is designed to reduce accidental data exposure: local storage remains
 
 This does not defend against malware or another process running as your Windows user and reading the process environment, database, or terminal; it does not encrypt SQLite; and deterministic redaction can miss secrets or personal information. The provider receives the minimized prompt whenever the opt-in request is made, and its applicable API data policies still apply. Avoid enabling the cloud path for content that must remain local.
 
-The current loopback API is **not directly connectable to ChatGPT custom MCP**. OpenAI’s setup requires a public HTTPS MCP endpoint, or a supported Secure MCP Tunnel for a private/local server. See [OpenAI’s custom MCP connection guide](https://help.openai.com/en/articles/12584461-connecting-custom-mcp-servers-in-chatgpt). ChatGPT custom MCP availability and setup depend on account/workspace support. This repository does not implement MCP transport or configure a tunnel; do not expose the current HTTP service directly to the internet.
+The current loopback API is **not directly connectable to ChatGPT custom MCP**. OpenAI’s setup requires a public HTTPS MCP endpoint, or a supported Secure MCP Tunnel for a private/local server. See [OpenAI’s custom MCP connection guide](https://help.openai.com/en/articles/12584461-connecting-custom-mcp-servers-in-chatgpt). ChatGPT custom MCP availability and setup depend on account/workspace support. The optional adapter below provides read-only MCP transport; it does not configure a tunnel for you. Do not expose the current HTTP service directly to the internet.
 
 ### Optional read-only MCP and Secure MCP Tunnel
 
@@ -293,4 +297,5 @@ Run the standard-library test suite with:
 ```powershell
 python -m unittest discover -s tests -v
 ```
+
 
