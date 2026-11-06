@@ -61,11 +61,53 @@ The database is created at:
 
 No automatic background service is installed. Nothing starts with Windows unless you choose to launch it.
 
-## Optional: connect ChatGPT
+## Optional: use the read-only MCP server
 
-Skip this section if local-only use is all you need.
+Skip this section if local-only use is all you need. This connection is optional and is not required for the memory manager to run.
 
-Direct ChatGPT custom-MCP access depends on your ChatGPT plan and workspace. If you intentionally choose to connect it, use the optional read-only MCP adapter and Secure MCP Tunnel instructions in the main [README](README.md). Keep tunnel credentials in the local tunnel client only—never in this repository, a command line, or a chat.
+The adapter gives ChatGPT only three read-only tools: search memory, retrieve task context, and check health. It cannot write memories, access arbitrary files, or make API calls.
+
+### A. Install the optional MCP package
+
+From this repository folder, open PowerShell and run:
+
+```powershell
+py -m pip install -r requirements-mcp.txt
+```
+
+The MCP adapter requires a local startup guard. This is not an OpenAI API key. Set it only for the current PowerShell window:
+
+```powershell
+$env:AGENTIC_MEMORY_MCP_TOKEN = 'local-only-mcp-startup-guard'
+```
+
+### B. Create the Secure MCP Tunnel
+
+Only do these steps if your ChatGPT plan or workspace supports custom MCP servers:
+
+1. Open the [OpenAI Platform tunnel settings](https://platform.openai.com/settings/organization/tunnels).
+2. Create or select a tunnel and copy its tunnel name or ID.
+3. Download the current `tunnel-client` from that page or the [official releases](https://github.com/openai/tunnel-client), then make sure `tunnel-client` works from PowerShell.
+4. Run `tunnel-client help quickstart` and create a local profile for this repository.
+5. Configure the profile to run `py mcp_server.py stdio` from this repository folder.
+6. When the tunnel client asks for its runtime key, paste it into the tunnel client’s local credential/profile prompt. Never put it in this repository, a command-line argument, GitHub, or a chat.
+
+### C. Start the tunnel
+
+In the same PowerShell window where you set the startup guard, set the profile name and run the launcher:
+
+```powershell
+$env:AGENTIC_MEMORY_TUNNEL_PROFILE = 'YOUR-LOCAL-PROFILE-NAME'
+.\run-secure-mcp-tunnel.cmd
+```
+
+The launcher validates the profile first and then starts an outbound-only connection. Keep that window open. Press **Ctrl+C** to stop it.
+
+### D. Connect it in ChatGPT
+
+In ChatGPT on the web, open the custom MCP or connector settings, choose **Add custom MCP server**, select **Tunnel**, and select the tunnel you created. The exact menu name can vary by plan and workspace. Review the permissions and start by testing the read-only health tool.
+
+If you do not see custom MCP or Tunnel options, your current plan or workspace may not support them. The local memory manager still works normally without this connection.
 
 ## Troubleshooting
 
