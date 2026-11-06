@@ -222,7 +222,7 @@ Invoke-RestMethod -Method Post -Uri 'http://127.0.0.1:8765/v1/memories/candidate
 Invoke-RestMethod -Uri 'http://127.0.0.1:8765/v1/context?task=technical%20explanation' -Headers $headers
 ```
 
-To choose a database path, pass `--db-path 'C:\path\to\memory.sqlite3'`. To choose a port, use `--port 8765`. The service does not send data to ChatGPT or any other provider; a future agent connector can call this local API and apply its own explicit cloud-data policy.
+To choose a database path, pass `--db-path 'C:\path\to\memory.sqlite3'`. To choose a port, use `--port 8765`. By default, the service makes no outbound calls; the optional broker and explicit cloud opt-in are described below.
 
 ### Admission baseline
 
@@ -235,8 +235,32 @@ Events are retained separately from admitted memories so a rejected event does n
 - Storage stays on the computer; Windows file permissions apply to the database directory. SQLite in this prototype is **not encrypted**. Use Windows device encryption/BitLocker if protection at rest is needed.
 - The random API token is printed to the service terminal at startup and exists only for that process. Do not share terminal output or expose this port through a proxy, firewall rule, or network bind.
 - Loopback binding and token checks reduce exposure, but this is not a security-audited product. `/health` intentionally reveals only that the local service is responding.
-- No dashboard, automatic capture from other applications, model-based extraction, automatic consolidation, MCP transport, or ChatGPT integration is included yet. `/v1/events` is the narrow ingestion point for a trusted local connector.
+- No dashboard, automatic capture from other applications, model-based memory extraction, automatic consolidation, or MCP transport is included yet. `/v1/events` is the narrow ingestion point for a trusted local connector.
 - The service has no automatic background startup and uses one request-handling thread to keep runtime overhead low.
+
+### Local broker and optional OpenAI API
+
+`POST /v1/broker/respond` accepts a JSON object with a `task` string and optional `limit` (maximum eight memories). It retrieves context locally and returns a compact packet containing only the task and selected memory type, text, and confidence. It excludes provenance, source IDs, timestamps, and direct database access. By default it makes no outbound request, even if an API key happens to be present.
+
+The broker applies deterministic redaction to common credentials, bearer tokens, OpenAI/AWS key patterns, email addresses, phone numbers, SSNs, payment-card-like numbers, and values attached to common sensitive field labels such as address or date of birth. It records only redaction categories/counts and outbound metadata in the audit table, never the prompt, API key, or model response. Context sent to the API is capped at approximately 6,000 characters. Redaction is a best-effort filter, not a guarantee or complete data-loss-prevention system; review the data-handling risk before enabling cloud processing.
+
+To enable the optional OpenAI Responses API path, install the official Python SDK and set a key only in the current PowerShell session, then start with the explicit flag:
+
+```powershell
+python -m pip install -r requirements-openai.txt
+$env:OPENAI_API_KEY = 'YOUR_API_KEY'
+python memory_manager.py --enable-openai
+```
+
+The key is read from the process environment when a broker request arrives. This application does not write it to disk or include it in database/audit records. The SDK client is created for that request and closed afterward. The outbound request uses the official Python SDK `client.responses.create(...)` method with `store=False`, no tools, and a bounded output. API calls are subject to OpenAI API account billing and data handling; `store=False` does not promise that all provider-side safety or abuse-monitoring retention is disabled. Stop and restart without `--enable-openai` to return to local-only behavior. The default install remains dependency-free.
+
+### Threat model and ChatGPT custom MCP connectivity
+
+The broker is designed to reduce accidental data exposure: local storage remains on the PC; no outbound call occurs by default; a cloud call requires both the startup opt-in flag and `OPENAI_API_KEY`; only a minimized, redacted context packet is sent; and the API key and full prompt are omitted from local audit logs. The service binds to loopback and still requires its bearer token for broker requests.
+
+This does not defend against malware or another process running as your Windows user and reading the process environment, database, or terminal; it does not encrypt SQLite; and deterministic redaction can miss secrets or personal information. The provider receives the minimized prompt whenever the opt-in request is made, and its applicable API data policies still apply. Avoid enabling the cloud path for content that must remain local.
+
+The current loopback API is **not directly connectable to ChatGPT custom MCP**. OpenAI’s setup requires a public HTTPS MCP endpoint, or a supported Secure MCP Tunnel for a private/local server. See [OpenAI’s custom MCP connection guide](https://help.openai.com/en/articles/12584461-connecting-custom-mcp-servers-in-chatgpt). ChatGPT custom MCP availability and setup depend on account/workspace support. This repository does not implement MCP transport or configure a tunnel; do not expose the current HTTP service directly to the internet.
 
 ### Tests
 

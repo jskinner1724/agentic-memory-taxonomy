@@ -1,0 +1,2 @@
+# Optional only. Install this package to use --enable-openai.
+openai>=1.66.0

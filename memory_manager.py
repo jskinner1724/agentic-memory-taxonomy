@@ -123,6 +123,12 @@ class MemoryStore:
             (utc_now(), action, outcome, item_id, json.dumps(detail or {}, separators=(",", ":"))),
         )
 
+    def record_audit(self, action: str, outcome: str, detail: dict | None = None) -> None:
+        """Record metadata-only service activity without exposing the DB handle."""
+        with self._lock:
+            self._audit(action, outcome, detail=detail)
+            self.db.commit()
+
     def add_event(self, content: str, source: str, event_type: str = "observation") -> dict:
         if not isinstance(content, str) or not content.strip() or len(content) > MAX_CONTENT_CHARS:
             raise ValueError("content must contain 1 to 4000 characters")
@@ -248,7 +254,7 @@ class MemoryStore:
             self.db.close()
 
 
-def make_handler(store: MemoryStore, token: str):
+def make_handler(store: MemoryStore, token: str, broker=None):
     class Handler(BaseHTTPRequestHandler):
         server_version = "LocalMemory/0.1"
         sys_version = ""
@@ -313,8 +319,12 @@ def make_handler(store: MemoryStore, token: str):
                     self._respond(404, {"error": "not found"})
             except (ValueError, TypeError) as exc:
                 self._respond(400, {"error": str(exc)})
-            except Exception:
-                self._respond(500, {"error": "request failed"})
+            except Exception as exc:
+                from broker import BrokerUnavailable
+                if isinstance(exc, BrokerUnavailable):
+                    self._respond(503, {"error": str(exc)})
+                else:
+                    self._respond(500, {"error": "request failed"})
 
         def do_POST(self) -> None:
             if not self._authorized():
@@ -328,14 +338,25 @@ def make_handler(store: MemoryStore, token: str):
                     result = store.save_candidate(data.get("content", ""), data.get("provenance", ""),
                                                   data.get("kind"), data.get("confidence"),
                                                   data.get("valid_until"))
+                elif self.path == "/v1/broker/respond":
+                    if broker is None:
+                        self._respond(503, {"error": "broker unavailable"})
+                        return
+                    result = broker.process_task(data.get("task", ""), data.get("limit", 8))
+                    self._respond(200, result)
+                    return
                 else:
                     self._respond(404, {"error": "not found"})
                     return
                 self._respond(201 if result.get("admitted") else 200, result)
             except (ValueError, TypeError, UnicodeDecodeError, json.JSONDecodeError) as exc:
                 self._respond(400, {"error": str(exc)})
-            except Exception:
-                self._respond(500, {"error": "request failed"})
+            except Exception as exc:
+                from broker import BrokerUnavailable
+                if isinstance(exc, BrokerUnavailable):
+                    self._respond(503, {"error": str(exc)})
+                else:
+                    self._respond(500, {"error": "request failed"})
 
     return Handler
 
@@ -347,14 +368,19 @@ def default_db_path() -> Path:
     return Path.home() / ".local" / "share" / "agentic-memory" / "memory.sqlite3"
 
 
-def serve(port: int, db_path: str | None = None) -> None:
+def serve(port: int, db_path: str | None = None, *, enable_openai: bool = False,
+          openai_model: str = "gpt-5.5") -> None:
+    from broker import MemoryBroker
+
     token = secrets.token_urlsafe(32)
     store = MemoryStore(db_path or default_db_path())
-    server = HTTPServer(("127.0.0.1", port), make_handler(store, token))
+    broker = MemoryBroker(store, openai_enabled=enable_openai, model=openai_model)
+    server = HTTPServer(("127.0.0.1", port), make_handler(store, token, broker))
     print(f"Local memory service listening at http://127.0.0.1:{server.server_port}")
     print("Bearer token (shown once; keep private): " + token)
     print(f"Database: {store.path}")
-    print("Press Ctrl+C to stop. No model or cloud service is started.")
+    print("Press Ctrl+C to stop. " + ("OpenAI calls are enabled by explicit flag." if enable_openai
+                                      else "No outbound model calls are enabled."))
     try:
         server.serve_forever(poll_interval=0.5)
     except KeyboardInterrupt:
@@ -368,10 +394,14 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Local-first, low-dependency agent memory service")
     parser.add_argument("--port", type=int, default=8765)
     parser.add_argument("--db-path", help="SQLite path (defaults to the current user's local data directory)")
+    parser.add_argument("--enable-openai", action="store_true",
+                        help="allow broker requests to call the OpenAI API (also requires OPENAI_API_KEY)")
+    parser.add_argument("--openai-model", default=os.environ.get("OPENAI_MODEL", "gpt-5.5"),
+                        help="model for explicitly enabled broker calls")
     args = parser.parse_args()
     if not 0 <= args.port <= 65535:
         parser.error("--port must be between 0 and 65535")
-    serve(args.port, args.db_path)
+    serve(args.port, args.db_path, enable_openai=args.enable_openai, openai_model=args.openai_model)
 
 
 if __name__ == "__main__":

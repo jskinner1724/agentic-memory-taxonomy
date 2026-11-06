@@ -7,6 +7,7 @@ from tempfile import TemporaryDirectory
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
+from broker import BrokerUnavailable, MemoryBroker, redact_sensitive
 from memory_manager import MemoryStore, make_handler
 
 
@@ -55,6 +56,82 @@ class MemoryStoreTests(unittest.TestCase):
         rows = self.store.db.execute("SELECT action,detail FROM audit_log ORDER BY id").fetchall()
         self.assertEqual([row["action"] for row in rows], ["candidate_save", "memory_search"])
         self.assertNotIn("memory", rows[1]["detail"])
+
+
+class BrokerTests(unittest.TestCase):
+    def setUp(self):
+        self.temp = TemporaryDirectory()
+        self.store = MemoryStore(Path(self.temp.name) / "memory.sqlite3")
+
+    def tearDown(self):
+        self.store.close()
+        self.temp.cleanup()
+
+    def test_redacts_credentials_and_sensitive_fields(self):
+        text = "email: alex@example.com; password=topsecret; key sk-proj-abcdefghijklmnop123456"
+        safe, counts = redact_sensitive(text)
+        self.assertNotIn("alex@example.com", safe)
+        self.assertNotIn("topsecret", safe)
+        self.assertNotIn("sk-proj-abcdefghijklmnop123456", safe)
+        self.assertEqual(counts["sensitive_field"], 1)
+        self.assertEqual(counts["credential_label"], 1)
+        self.assertEqual(counts["openai_key"], 1)
+
+    def test_default_off_never_constructs_client_even_with_key(self):
+        calls = []
+        broker = MemoryBroker(self.store, api_key_provider=lambda: "present-but-disabled",
+                              client_factory=lambda key: calls.append(key))
+        result = broker.process_task("A local lookup")
+        self.assertFalse(result["cloud_used"])
+        self.assertEqual(calls, [])
+        audit = self.store.db.execute(
+            "SELECT outcome,detail FROM audit_log WHERE action='broker_outbound'"
+        ).fetchone()
+        self.assertEqual(audit["outcome"], "disabled")
+        self.assertNotIn("present-but-disabled", audit["detail"])
+
+    def test_enabled_without_key_fails_closed_and_audits(self):
+        broker = MemoryBroker(self.store, openai_enabled=True, api_key_provider=lambda: None)
+        with self.assertRaises(BrokerUnavailable):
+            broker.process_task("A local lookup")
+        audit = self.store.db.execute(
+            "SELECT outcome,detail FROM audit_log WHERE action='broker_outbound'"
+        ).fetchone()
+        self.assertEqual(audit["outcome"], "missing_key")
+        self.assertIn('"outbound":false', audit["detail"])
+
+    def test_enabled_sends_only_minimized_redacted_context(self):
+        self.store.save_candidate(
+            "I prefer concise emails; email=alex@example.com; password=privatevalue",
+            "user conversation", confidence=0.9,
+        )
+
+        class FakeResponse:
+            output_text = "Drafted using sanitized context."
+
+        class FakeResponses:
+            def create(inner_self, **kwargs):
+                self.request_args = kwargs
+                return FakeResponse()
+
+        class FakeClient:
+            responses = FakeResponses()
+
+        broker = MemoryBroker(self.store, openai_enabled=True, api_key_provider=lambda: "not-persisted",
+                              client_factory=lambda key: FakeClient())
+        result = broker.process_task("Prepare concise emails for alex@example.com")
+        payload = self.request_args["input"]
+        self.assertTrue(result["cloud_used"])
+        self.assertNotIn("alex@example.com", payload)
+        self.assertNotIn("privatevalue", payload)
+        self.assertNotIn("not-persisted", payload)
+        self.assertFalse(self.request_args["store"])
+        self.assertNotIn("provenance", payload)
+        audit_text = " ".join(row[0] + row[1] for row in self.store.db.execute(
+            "SELECT action,detail FROM audit_log WHERE action LIKE 'broker_%'"
+        ).fetchall())
+        self.assertNotIn("alex@example.com", audit_text)
+        self.assertNotIn("privatevalue", audit_text)
 
 
 class ApiTests(unittest.TestCase):
