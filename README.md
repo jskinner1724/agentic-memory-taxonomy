@@ -188,3 +188,61 @@ The deepest design principle is:
 
 > A memory should not only answer “what do I remember?” It should also answer “why do I believe it, when is it valid, what follows from it, and what should I avoid because of it?”
 
+## Runnable local prototype
+
+This repository also includes a small local-first memory service that demonstrates these ideas. It uses only the Python standard library and SQLite. It starts no model, contacts no cloud service, and binds only to `127.0.0.1`.
+
+### Requirements and quickstart (Windows)
+
+Python 3.10 or newer is required. From this folder, run:
+
+```powershell
+python memory_manager.py
+```
+
+On first start, the service creates its database in `%LOCALAPPDATA%\AgenticMemory\memory.sqlite3`. It prints a random bearer token once to the terminal. Keep that token private; clients must provide it in the `Authorization: Bearer ...` header. Press `Ctrl+C` to stop the service. No service is installed to run in the background.
+
+The API is intentionally narrow:
+
+- `GET /health` — minimal liveness check; does not expose memory.
+- `POST /v1/events` — stores an event and applies deterministic admission rules.
+- `POST /v1/memories/candidate` — evaluates and may save a proposed memory.
+- `GET /v1/search?q=...` — searches active, unexpired memories.
+- `GET /v1/context?task=...` — returns a compact set of matching memories with provenance and confidence.
+
+All routes other than `/health` require the bearer token. Requests are limited to 64 KiB, memory text to 4,000 characters, browser-origin requests are rejected, and request/query contents are omitted from console and audit logs. The API accepts JSON and has no CORS support.
+
+Example (PowerShell; replace the token with the one printed by the running service):
+
+```powershell
+$token = 'PASTE-THE-LOCAL-TOKEN-HERE'
+$headers = @{ Authorization = "Bearer $token" }
+$body = @{ content = 'I prefer concise technical explanations.'; provenance = 'user conversation' } | ConvertTo-Json
+Invoke-RestMethod -Method Post -Uri 'http://127.0.0.1:8765/v1/memories/candidate' -Headers $headers -ContentType 'application/json' -Body $body
+Invoke-RestMethod -Uri 'http://127.0.0.1:8765/v1/context?task=technical%20explanation' -Headers $headers
+```
+
+To choose a database path, pass `--db-path 'C:\path\to\memory.sqlite3'`. To choose a port, use `--port 8765`. The service does not send data to ChatGPT or any other provider; a future agent connector can call this local API and apply its own explicit cloud-data policy.
+
+### Admission baseline
+
+The initial admission judge is a transparent heuristic, not a learned classifier. It recognizes a small set of preference, goal, procedure, causal, prospective, and inhibitory phrases, scores candidate durability, and rejects likely one-off statements such as a transient mood. The score and reason codes are returned to the caller. This is a prototype baseline and should not be treated as reliably understanding arbitrary natural language.
+
+Events are retained separately from admitted memories so a rejected event does not become active context. Active memory records include a type, provenance, confidence, status, creation time, optional expiry, and source-event link. Exact duplicate active memories are not added twice. Expired records are excluded from retrieval. The audit table records operation, outcome, and counts/reason codes, but avoids copying query text into the audit log.
+
+### Security and limitations
+
+- Storage stays on the computer; Windows file permissions apply to the database directory. SQLite in this prototype is **not encrypted**. Use Windows device encryption/BitLocker if protection at rest is needed.
+- The random API token is printed to the service terminal at startup and exists only for that process. Do not share terminal output or expose this port through a proxy, firewall rule, or network bind.
+- Loopback binding and token checks reduce exposure, but this is not a security-audited product. `/health` intentionally reveals only that the local service is responding.
+- No dashboard, automatic capture from other applications, model-based extraction, automatic consolidation, MCP transport, or ChatGPT integration is included yet. `/v1/events` is the narrow ingestion point for a trusted local connector.
+- The service has no automatic background startup and uses one request-handling thread to keep runtime overhead low.
+
+### Tests
+
+Run the standard-library test suite with:
+
+```powershell
+python -m unittest discover -s tests -v
+```
+
