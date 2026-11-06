@@ -95,6 +95,8 @@ This is the only step that happens outside this app:
 
 **Important download distinction:** the file named `tunnel-client-runtime-cloudflared` is an official OpenAI runtime bundle, but it is intended to run an already-created configuration. For this first setup, download the full **`tunnel-client`** bundle from the Platform page or the [official release page](https://github.com/openai/tunnel-client/releases/latest). The full client is the one that provides the setup, profile, and diagnostic commands. Keep the Cloudflare runtime only if the setup page specifically tells you to use it; do not download `cloudflared` directly from Cloudflare for this guide.
 
+For this Windows computer, choose the **Windows AMD64/x64** download. Do not choose **Windows ARM64**; ARM64 is a different processor architecture.
+
 The Platform page or tunnel client will create a **local tunnel profile** and may ask for a **runtime key**. The runtime key is simply the tunnel client’s password for connecting to that tunnel. It is not the same as an API key.
 
 When prompted, paste the runtime key into the tunnel client’s own credential prompt or local profile setup. Do not paste it into this README, GitHub, ChatGPT messages, a batch file, or a command-line argument. If the page asks you to add API payment details and you do not want API billing, stop without submitting them.
