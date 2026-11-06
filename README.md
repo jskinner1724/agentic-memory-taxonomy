@@ -264,6 +264,28 @@ This does not defend against malware or another process running as your Windows 
 
 The current loopback API is **not directly connectable to ChatGPT custom MCP**. OpenAI’s setup requires a public HTTPS MCP endpoint, or a supported Secure MCP Tunnel for a private/local server. See [OpenAI’s custom MCP connection guide](https://help.openai.com/en/articles/12584461-connecting-custom-mcp-servers-in-chatgpt). ChatGPT custom MCP availability and setup depend on account/workspace support. This repository does not implement MCP transport or configure a tunnel; do not expose the current HTTP service directly to the internet.
 
+### Optional read-only MCP and Secure MCP Tunnel
+
+For direct ChatGPT access without making the memory database public, install the optional MCP dependency:
+
+```powershell
+python -m pip install -r requirements-mcp.txt
+```
+
+The adapter is intentionally read-only. It exposes only `search_memory`, `get_memory_context`, and `memory_health`; it does not expose memory writes, arbitrary HTTP forwarding, the SQLite file, or the OpenAI API broker. It is designed to run through `tunnel-client` over stdio, so the MCP server remains local and does not need an inbound listener.
+
+OpenAI’s current Secure MCP Tunnel setup is:
+
+1. Sign in to the [OpenAI Platform tunnel settings](https://platform.openai.com/settings/organization/tunnels).
+2. Create or select a tunnel endpoint and associate it with the ChatGPT workspace that will use it. Copy the `tunnel_id`.
+3. Download the current `tunnel-client` from the tunnel settings page or the [official tunnel-client releases](https://github.com/openai/tunnel-client). Keep it on your PATH.
+4. Use `tunnel-client help quickstart` to create a local profile whose MCP command is this repository’s Python executable running `mcp_server.py stdio`.
+5. When the client asks for its runtime key, paste it into the client’s local credential/profile setup. Never paste it into this README, a batch file, a command-line argument, a GitHub page, or a chat. If using a PowerShell environment variable, set it only for the current session and clear it when finished.
+6. Set the profile name locally, then double-click `run-secure-mcp-tunnel.cmd`. It validates the profile with `tunnel-client doctor` before starting the outbound-only client.
+7. In ChatGPT on the web, open Plugins, choose **Add custom MCP server**, select **Tunnel**, select the same tunnel, configure the requested authentication, review the warning, and create the connection. Start with the read-only tools and test `memory_health` first.
+
+The tunnel client needs outbound HTTPS to OpenAI and local access to the MCP command; it does not require an inbound firewall rule. Account, workspace, and tunnel permissions still apply. Do not publish this adapter as a public plugin without a separate security review and production authentication design.
+
 ### Tests
 
 Run the standard-library test suite with:

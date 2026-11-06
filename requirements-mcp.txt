@@ -1,0 +1,2 @@
+# Optional only. Install this package to run the read-only MCP adapter.
+mcp>=1.26.0,<2
