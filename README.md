@@ -194,7 +194,9 @@ This repository also includes a small local-first memory service that demonstrat
 
 ### Requirements and quickstart (Windows)
 
-Python 3.10 or newer is required. From this folder, run:
+Python 3.10 or newer is required. On Windows, double-click `run-memory-manager.cmd`. A console window stays open while the service runs; the local bearer token is printed there. Press `Ctrl+C` in that window to stop it. The launcher runs as your normal Windows user and does not install a service or start automatically with Windows.
+
+You can also start it from PowerShell in this folder:
 
 ```powershell
 python memory_manager.py
@@ -222,7 +224,7 @@ Invoke-RestMethod -Method Post -Uri 'http://127.0.0.1:8765/v1/memories/candidate
 Invoke-RestMethod -Uri 'http://127.0.0.1:8765/v1/context?task=technical%20explanation' -Headers $headers
 ```
 
-To choose a database path, pass `--db-path 'C:\path\to\memory.sqlite3'`. To choose a port, use `--port 8765`. By default, the service makes no outbound calls; the optional broker and explicit cloud opt-in are described below.
+To choose a database path, pass `--db-path 'C:\path\to\memory.sqlite3'`. To choose a port, use `--port 8765`. By default, the service makes no outbound calls; the optional broker and explicit cloud opt-in are described below. The Windows launcher does not pass `--enable-openai`, so cloud calls stay disabled.
 
 ### Admission baseline
 
