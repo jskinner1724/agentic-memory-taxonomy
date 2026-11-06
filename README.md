@@ -192,6 +192,8 @@ The deepest design principle is:
 
 This repository also includes a small local-first memory service that demonstrates these ideas. It uses only the Python standard library and SQLite. It starts no model, contacts no cloud service, and binds only to `127.0.0.1`.
 
+> **Want the shortest path?** See the [QuickStart](QUICKSTART.md) for the minimal Windows setup and local-only path.
+
 ### Requirements and quickstart (Windows)
 
 **Cost boundary:** The local memory manager does not require a separate paid service, API key, or cloud account. It runs on your PC with Python and SQLite. Cloud/API processing is optional and disabled by default. Do not start the service with `--enable-openai` if you do not want separately billed API usage. Direct ChatGPT custom-MCP access is a separate ChatGPT feature whose availability depends on your plan and workspace permissions; verify that access before configuring a tunnel.
