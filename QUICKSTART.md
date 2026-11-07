@@ -163,6 +163,8 @@ Return to ChatGPT and:
 
 If ChatGPT cannot see the tunnel, confirm that the tunnel window is still running and that the selected tunnel name matches the local profile.
 
+**Important:** custom MCP setup is currently a ChatGPT **web** feature. The ChatGPT desktop app version does not control whether the menu appears. Open ChatGPT in a browser using the same account, then check **Settings → Apps → Advanced settings** for **Developer mode** if your plan requires it. If you do not see custom MCP, Add connector, or Developer mode there, your plan or workspace does not currently expose the feature. The tunnel can still run safely, but ChatGPT cannot use it until the workspace feature is available.
+
 ## Cost and privacy boundary
 
 The local path in Part 1 does not require a paid service, API key, cloud account, or API billing. Installing this project, installing the MCP package, and running the local service do not create API usage.
