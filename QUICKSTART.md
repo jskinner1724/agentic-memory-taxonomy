@@ -49,6 +49,18 @@ When finished, return to the first console window and press **Ctrl+C**. Nothing 
 
 Only use this part after Part 1 works. If you only want a local memory manager, stop here.
 
+### Recommended path: use the guided launcher
+
+You do not need to type PowerShell commands for the normal setup.
+
+1. In this repository folder, double-click `connect-chatgpt.cmd`.
+2. When the file picker opens, select the full Windows AMD64/x64 `tunnel-client.exe`.
+3. Paste the tunnel ID for **My Local Memory** when asked.
+4. Paste the restricted Runtime API key when asked. The prompt hides the key, and the key is not written to this repository.
+5. Leave the window open after it says the tunnel is running.
+
+If the guided launcher reports an error, use the manual fallback below or share the error message without sharing the key.
+
 ### What the connection consists of
 
 ChatGPT cannot directly open a private file on your computer. The connection therefore has four pieces:
@@ -60,7 +72,7 @@ ChatGPT cannot directly open a private file on your computer. The connection the
 
 The tunnel is not the memory manager. It is only an optional bridge between ChatGPT and the local read-only adapter.
 
-### Step 1: Install the optional MCP package
+### Manual fallback — Step 1: Install the optional MCP package
 
 Open PowerShell in this repository folder and run:
 
@@ -125,6 +137,18 @@ $env:AGENTIC_MEMORY_TUNNEL_PROFILE = 'YOUR-LOCAL-PROFILE-NAME'
 This command first checks the profile. If the check succeeds, it starts the outbound tunnel. Leave this window open while ChatGPT is using the connection. Press **Ctrl+C** to stop it.
 
 Do not double-click `run-secure-mcp-tunnel.cmd` unless you have already configured `AGENTIC_MEMORY_TUNNEL_PROFILE` as a permanent Windows environment variable. Running it from the same PowerShell window is the clearer and safer option.
+
+### Easier option: use the guided launcher
+
+You do not have to type the commands above manually. From this repository folder, double-click:
+
+```text
+connect-chatgpt.cmd
+```
+
+The guided window will ask you to select `tunnel-client.exe`, paste the tunnel ID, and paste the Runtime API key privately. It will then create or check the profile and start the tunnel. Keep its window open.
+
+Use the manual commands above only if the guided launcher reports an error and you need to troubleshoot it.
 
 ### Step 6: Select the tunnel in ChatGPT
 
